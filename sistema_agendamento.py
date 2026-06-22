@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
 """
-SISTEMA DE AGENDAMENTO - 
-Cria agendamentos no banco de dados e gera comprovantes
+APPOINTMENT SYSTEM - Creates appointments in the database and generates receipts
 """
 
 import os
@@ -12,531 +10,533 @@ from typing import List, Dict, Optional
 import re
 import json
 
-# ==================== CONFIGURACOES ====================
-PASTA_ENTRADA = "mensagens_recebidas"
-PASTA_SAIDA = "mensagens_enviadas"
-PASTA_AGENDAMENTOS = "agendamentos"
+# ==================== CONFIGURATIONS ====================
+INPUT_FOLDER = "mensagens_recebidas"
+OUTPUT_FOLDER = "mensagens_enviadas"
+APPOINTMENTS_FOLDER = "agendamentos"
 DATABASE = "agendamentos.db"
-ARQUIVO_ESTADOS = "estados_conversas.json"
+STATES_FILE = "estados_conversas.json"
 
 print("="*60)
-print("SISTEMA DE AGENDAMENTO - INICIANDO...")
+print("APPOINTMENT SYSTEM - STARTING...")
 print("="*60)
 
-HORARIOS_DISPONIVEIS = {
-    "segunda": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
-    "terca": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
-    "quarta": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
-    "quinta": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
-    "sexta": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
-    "sabado": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30"],
-    "domingo": []
+AVAILABLE_TIMES = {
+    "monday": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
+    "tuesday": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
+    "wednesday": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
+    "thursday": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
+    "friday": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
+    "saturday": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30"],
+    "sunday": []
 }
 
-PROFISSIONAIS = [
-    {"id": 1, "nome": "Dr. Carlos Silva", "especialidade": "Cardiologia"},
-    {"id": 2, "nome": "Dra. Ana Santos", "especialidade": "Dermatologia"},
-    {"id": 3, "nome": "Dr. Roberto Lima", "especialidade": "Ortopedia"},
-    {"id": 4, "nome": "Dra. Fernanda Costa", "especialidade": "Pediatria"},
+PROFESSIONALS = [
+    {"id": 1, "name": "Dr. Carlos Silva", "specialty": "Cardiology"},
+    {"id": 2, "name": "Dra. Ana Santos", "specialty": "Dermatology"},
+    {"id": 3, "name": "Dr. Roberto Lima", "specialty": "Orthopedics"},
+    {"id": 4, "name": "Dra. Fernanda Costa", "specialty": "Pediatrics"},
 ]
 
-estados_conversas = {}
+conversation_states = {}
 
-def salvar_estados():
-    with open(ARQUIVO_ESTADOS, 'w', encoding='utf-8') as f:
-        json.dump(estados_conversas, f, ensure_ascii=False, indent=2, default=str)
+def save_states():
+    with open(STATES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(conversation_states, f, ensure_ascii=False, indent=2, default=str)
 
-def carregar_estados():
-    global estados_conversas
-    if os.path.exists(ARQUIVO_ESTADOS):
-        with open(ARQUIVO_ESTADOS, 'r', encoding='utf-8') as f:
-            estados_conversas = json.load(f)
+def load_states():
+    global conversation_states
+    if os.path.exists(STATES_FILE):
+        with open(STATES_FILE, 'r', encoding='utf-8') as f:
+            conversation_states = json.load(f)
 
-def criar_pastas():
-    for pasta in [PASTA_ENTRADA, PASTA_SAIDA, PASTA_AGENDAMENTOS]:
-        if not os.path.exists(pasta):
-            os.makedirs(pasta)
-            print(f"Pasta criada: {pasta}")
+def create_folders():
+    for folder in [INPUT_FOLDER, OUTPUT_FOLDER, APPOINTMENTS_FOLDER]:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+            print(f"Folder created: {folder}")
 
 def init_database():
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
     
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS clientes (
+        CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            telefone TEXT UNIQUE NOT NULL,
-            data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            total_consultas INTEGER DEFAULT 0
+            name TEXT NOT NULL,
+            phone TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            total_appointments INTEGER DEFAULT 0
         )
     ''')
     
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS agendamentos (
+        CREATE TABLE IF NOT EXISTS appointments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente_id INTEGER,
-            profissional_id INTEGER,
-            profissional_nome TEXT,
-            data DATE,
-            horario TEXT,
-            status TEXT DEFAULT 'pendente',
-            data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            data_confirmacao TIMESTAMP,
-            FOREIGN KEY (cliente_id) REFERENCES clientes (id)
+            client_id INTEGER,
+            professional_id INTEGER,
+            professional_name TEXT,
+            date DATE,
+            time TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            confirmed_at TIMESTAMP,
+            FOREIGN KEY (client_id) REFERENCES clients (id)
         )
     ''')
     
     conn.commit()
     conn.close()
-    print("Banco de dados inicializado")
+    print("Database initialized")
 
-def get_or_create_cliente(telefone: str, nome: str = "Paciente") -> dict:
+def get_or_create_client(phone: str, name: str = "Patient") -> dict:
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM clientes WHERE telefone = ?", (telefone,))
-    cliente = cursor.fetchone()
+    cursor.execute("SELECT * FROM clients WHERE phone = ?", (phone,))
+    client = cursor.fetchone()
     
-    if not cliente:
-        cursor.execute("INSERT INTO clientes (nome, telefone) VALUES (?, ?)", (nome, telefone))
+    if not client:
+        cursor.execute("INSERT INTO clients (name, phone) VALUES (?, ?)", (name, phone))
         conn.commit()
-        cursor.execute("SELECT * FROM clientes WHERE telefone = ?", (telefone,))
-        cliente = cursor.fetchone()
-        print(f"  [DB] Novo cliente criado: {nome} - {telefone}")
+        cursor.execute("SELECT * FROM clients WHERE phone = ?", (phone,))
+        client = cursor.fetchone()
+        print(f"  [DB] New client created: {name} - {phone}")
     
     conn.close()
-    return dict(cliente)
+    return dict(client)
 
-def salvar_agendamento(cliente_id: int, profissional: dict, data: str, horario: str) -> int:
+def save_appointment(client_id: int, professional: dict, date: str, time: str) -> int:
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
     
     cursor.execute('''
-        INSERT INTO agendamentos (cliente_id, profissional_id, profissional_nome, data, horario, status)
-        VALUES (?, ?, ?, ?, ?, 'pendente')
-    ''', (cliente_id, profissional['id'], profissional['nome'], data, horario))
+        INSERT INTO appointments (client_id, professional_id, professional_name, date, time, status)
+        VALUES (?, ?, ?, ?, ?, 'pending')
+    ''', (client_id, professional['id'], professional['name'], date, time))
     
-    agendamento_id = cursor.lastrowid
+    appointment_id = cursor.lastrowid
     conn.commit()
     conn.close()
     
-    print(f"  [DB] Agendamento SALVO! ID: {agendamento_id} - {profissional['nome']} - {data} {horario}")
-    return agendamento_id
+    print(f"  [DB] Appointment SAVED! ID: {appointment_id} - {professional['name']} - {date} {time}")
+    return appointment_id
 
-def confirmar_agendamento(agendamento_id: int):
+def confirm_appointment(appointment_id: int):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
     
     cursor.execute('''
-        UPDATE agendamentos SET status = 'confirmado', data_confirmacao = CURRENT_TIMESTAMP WHERE id = ?
-    ''', (agendamento_id,))
+        UPDATE appointments SET status = 'confirmed', confirmed_at = CURRENT_TIMESTAMP WHERE id = ?
+    ''', (appointment_id,))
     
     cursor.execute('''
-        UPDATE clientes SET total_consultas = total_consultas + 1 
-        WHERE id = (SELECT cliente_id FROM agendamentos WHERE id = ?)
-    ''', (agendamento_id,))
+        UPDATE clients SET total_appointments = total_appointments + 1 
+        WHERE id = (SELECT client_id FROM appointments WHERE id = ?)
+    ''', (appointment_id,))
     
     conn.commit()
     conn.close()
-    print(f"  [DB] Agendamento CONFIRMADO! ID: {agendamento_id}")
+    print(f"  [DB] Appointment CONFIRMED! ID: {appointment_id}")
 
-def cancelar_agendamento(agendamento_id: int):
+def cancel_appointment(appointment_id: int):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-    cursor.execute('UPDATE agendamentos SET status = "cancelado" WHERE id = ?', (agendamento_id,))
+    cursor.execute('UPDATE appointments SET status = "cancelled" WHERE id = ?', (appointment_id,))
     conn.commit()
     conn.close()
-    print(f"  [DB] Agendamento CANCELADO! ID: {agendamento_id}")
+    print(f"  [DB] Appointment CANCELLED! ID: {appointment_id}")
 
-def get_agendamentos_cliente(telefone: str, status: str = None) -> List[dict]:
+def get_client_appointments(phone: str, status: str = None) -> List[dict]:
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    cliente = get_or_create_cliente(telefone)
+    client = get_or_create_client(phone)
     
     if status:
         cursor.execute('''
-            SELECT * FROM agendamentos WHERE cliente_id = ? AND status = ? ORDER BY data, horario
-        ''', (cliente['id'], status))
+            SELECT * FROM appointments WHERE client_id = ? AND status = ? ORDER BY date, time
+        ''', (client['id'], status))
     else:
         cursor.execute('''
-            SELECT * FROM agendamentos WHERE cliente_id = ? ORDER BY data, horario
-        ''', (cliente['id'],))
+            SELECT * FROM appointments WHERE client_id = ? ORDER BY date, time
+        ''', (client['id'],))
     
-    agendamentos = [dict(row) for row in cursor.fetchall()]
+    appointments = [dict(row) for row in cursor.fetchall()]
     conn.close()
-    return agendamentos
+    return appointments
 
-def get_agendamento(agendamento_id: int) -> Optional[dict]:
+def get_appointment(appointment_id: int) -> Optional[dict]:
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM agendamentos WHERE id = ?", (agendamento_id,))
-    agendamento = cursor.fetchone()
+    cursor.execute("SELECT * FROM appointments WHERE id = ?", (appointment_id,))
+    appointment = cursor.fetchone()
     conn.close()
-    return dict(agendamento) if agendamento else None
+    return dict(appointment) if appointment else None
 
-def detectar_intencao(mensagem: str) -> dict:
-    msg_lower = mensagem.lower()
+def detect_intent(message: str) -> dict:
+    msg_lower = message.lower()
     
-    if any(p in msg_lower for p in ['agendar', 'marcar', 'consulta', 'horario', 'reservar']):
-        if any(p in msg_lower for p in ['remarcar', 'reagendar', 'mudar', 'trocar']):
-            return {'intencao': 'remarcar'}
-        return {'intencao': 'agendar'}
-    elif any(p in msg_lower for p in ['cancelar', 'desmarcar', 'cancelamento']):
-        return {'intencao': 'cancelar'}
-    elif any(p in msg_lower for p in ['confirmar', 'confirmo', 'confirmacao', 'sim']):
-        return {'intencao': 'confirmar'}
-    elif any(p in msg_lower for p in ['listar', 'minhas consultas', 'meus agendamentos', 'ver consultas']):
-        return {'intencao': 'listar'}
-    elif any(p in msg_lower for p in ['ajuda', 'menu', 'opcoes', 'como funciona']):
-        return {'intencao': 'ajuda'}
-    elif mensagem.strip().isdigit() and 1 <= int(mensagem.strip()) <= 10:
-        return {'intencao': 'selecao_numero', 'numero': int(mensagem.strip())}
+    if any(p in msg_lower for p in ['book', 'schedule', 'appointment', 'time']):
+        if any(p in msg_lower for p in ['reschedule', 'change', 'move']):
+            return {'intent': 'reschedule'}
+        return {'intent': 'book'}
+    elif any(p in msg_lower for p in ['cancel', 'delete', 'remove']):
+        return {'intent': 'cancel'}
+    elif any(p in msg_lower for p in ['confirm', 'yes', 'ok']):
+        return {'intent': 'confirm'}
+    elif any(p in msg_lower for p in ['list', 'my appointments', 'show']):
+        return {'intent': 'list'}
+    elif any(p in msg_lower for p in ['help', 'menu', 'options']):
+        return {'intent': 'help'}
+    elif message.strip().isdigit() and 1 <= int(message.strip()) <= 10:
+        return {'intent': 'number_selection', 'number': int(message.strip())}
     else:
-        return {'intencao': 'nao_identificado'}
+        return {'intent': 'unknown'}
 
-def extrair_profissional(mensagem: str) -> Optional[dict]:
-    msg_lower = mensagem.lower()
-    for p in PROFISSIONAIS:
-        if p['nome'].lower() in msg_lower or p['especialidade'].lower() in msg_lower:
+def extract_professional(message: str) -> Optional[dict]:
+    msg_lower = message.lower()
+    for p in PROFESSIONALS:
+        if p['name'].lower() in msg_lower or p['specialty'].lower() in msg_lower:
             return p
     return None
 
-def extrair_data(mensagem: str) -> Optional[str]:
-    hoje = datetime.now()
-    msg_lower = mensagem.lower()
+def extract_date(message: str) -> Optional[str]:
+    today = datetime.now()
+    msg_lower = message.lower()
     
-    if 'hoje' in msg_lower:
-        return hoje.strftime('%Y-%m-%d')
-    if 'amanha' in msg_lower or 'amanhã' in msg_lower:
-        return (hoje + timedelta(days=1)).strftime('%Y-%m-%d')
-    if 'proxima semana' in msg_lower or 'próxima semana' in msg_lower:
-        days = (7 - hoje.weekday()) % 7
-        return (hoje + timedelta(days=days if days > 0 else 7)).strftime('%Y-%m-%d')
+    if 'today' in msg_lower:
+        return today.strftime('%Y-%m-%d')
+    if 'tomorrow' in msg_lower:
+        return (today + timedelta(days=1)).strftime('%Y-%m-%d')
+    if 'next week' in msg_lower:
+        days = (7 - today.weekday()) % 7
+        return (today + timedelta(days=days if days > 0 else 7)).strftime('%Y-%m-%d')
     
-    padrao = r'(\d{1,2})[/-](\d{1,2})'
-    match = re.search(padrao, mensagem)
+    pattern = r'(\d{1,2})[/-](\d{1,2})'
+    match = re.search(pattern, message)
     if match:
-        dia, mes = int(match.group(1)), int(match.group(2))
+        day, month = int(match.group(1)), int(match.group(2))
         try:
-            data = datetime(hoje.year, mes, dia)
-            if data < hoje:
-                data = datetime(hoje.year + 1, mes, dia)
-            return data.strftime('%Y-%m-%d')
+            date = datetime(today.year, month, day)
+            if date < today:
+                date = datetime(today.year + 1, month, day)
+            return date.strftime('%Y-%m-%d')
         except:
             pass
     return None
 
-def obter_horarios_disponiveis(data: str, profissional_id: int = None) -> List[str]:
-    data_obj = datetime.strptime(data, '%Y-%m-%d')
-    dias_map = {'monday': 'segunda', 'tuesday': 'terca', 'wednesday': 'quarta',
-                'thursday': 'quinta', 'friday': 'sexta', 'saturday': 'sabado', 'sunday': 'domingo'}
-    dia = dias_map.get(data_obj.strftime('%A').lower(), 'segunda')
-    horarios = HORARIOS_DISPONIVEIS.get(dia, [])
+def get_available_times(date: str, professional_id: int = None) -> List[str]:
+    date_obj = datetime.strptime(date, '%Y-%m-%d')
+    day_name = date_obj.strftime('%A').lower()
+    times = AVAILABLE_TIMES.get(day_name, [])
     
     import random
-    random.seed(f"{data}_{profissional_id}")
-    ocupados = random.sample(horarios, min(3, len(horarios) // 3)) if horarios else []
-    return [h for h in horarios if h not in ocupados]
+    random.seed(f"{date}_{professional_id}")
+    occupied = random.sample(times, min(3, len(times) // 3)) if times else []
+    return [t for t in times if t not in occupied]
 
-def enviar_resposta(telefone: str, mensagem: str):
+def send_response(phone: str, message: str):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-    nome_arquivo = f"{PASTA_SAIDA}/{telefone}_{timestamp}.txt"
+    filename = f"{OUTPUT_FOLDER}/{phone}_{timestamp}.txt"
     
-    with open(nome_arquivo, 'w', encoding='utf-8') as f:
-        f.write(f"PARA: {telefone}\n")
-        f.write(f"DATA: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(f"TO: {phone}\n")
+        f.write(f"DATE: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
         f.write("="*50 + "\n")
-        f.write(mensagem)
+        f.write(message)
     
-    print(f"  -> Resposta salva: {nome_arquivo}")
+    print(f"  -> Response saved: {filename}")
 
-def gerar_comprovante(agendamento_id: int, telefone: str):
-    ag = get_agendamento(agendamento_id)
-    if ag:
+def generate_receipt(appointment_id: int, phone: str):
+    appointment = get_appointment(appointment_id)
+    if appointment:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        nome_arquivo = f"{PASTA_AGENDAMENTOS}/agendamento_{ag['id']}_{timestamp}.txt"
+        filename = f"{APPOINTMENTS_FOLDER}/appointment_{appointment['id']}_{timestamp}.txt"
         
-        with open(nome_arquivo, 'w', encoding='utf-8') as f:
+        with open(filename, 'w', encoding='utf-8') as f:
             f.write("="*60 + "\n")
-            f.write("COMPROVANTE DE AGENDAMENTO\n")
+            f.write("APPOINTMENT RECEIPT\n")
             f.write("="*60 + "\n\n")
-            f.write(f"Protocolo: {ag['id']}\n")
-            f.write(f"Paciente: {telefone}\n")
-            f.write(f"Profissional: {ag['profissional_nome']}\n")
-            f.write(f"Data: {ag['data'].replace('-', '/')}\n")
-            f.write(f"Horario: {ag['horario']}\n")
-            f.write(f"Status: {ag['status'].upper()}\n")
-            f.write(f"Data do agendamento: {ag['data_criacao']}\n")
+            f.write(f"Protocol: {appointment['id']}\n")
+            f.write(f"Patient: {phone}\n")
+            f.write(f"Professional: {appointment['professional_name']}\n")
+            f.write(f"Date: {appointment['date'].replace('-', '/')}\n")
+            f.write(f"Time: {appointment['time']}\n")
+            f.write(f"Status: {appointment['status'].upper()}\n")
+            f.write(f"Created at: {appointment['created_at']}\n")
             f.write("\n" + "="*60 + "\n")
         
-        print(f"  -> COMPROVANTE gerado: {nome_arquivo}")
+        print(f"  -> RECEIPT generated: {filename}")
         return True
     return False
 
-def processar_mensagem(telefone: str, mensagem: str, nome: str):
-    global estados_conversas
+def process_message(phone: str, message: str, name: str):
+    global conversation_states
     
-    # Obter estado atual
-    estado = estados_conversas.get(telefone, {'passo': 'inicio', 'dados': {}})
-    cliente = get_or_create_cliente(telefone, nome)
+    # Get current state
+    state = conversation_states.get(phone, {'step': 'start', 'data': {}})
+    client = get_or_create_client(phone, name)
     
-    print(f"  Estado: {estado['passo']}")
+    print(f"  State: {state['step']}")
     
-    if estado['passo'] == 'aguardando_horario':
+    # Process based on current step
+    if state['step'] == 'awaiting_time':
         try:
-            escolha = int(mensagem.strip())
-            horarios = estado['dados']['horarios']
-            if 1 <= escolha <= len(horarios):
-                horario_escolhido = horarios[escolha - 1]
+            choice = int(message.strip())
+            times = state['data']['times']
+            if 1 <= choice <= len(times):
+                selected_time = times[choice - 1]
                 
-                agendamento_id = salvar_agendamento(
-                    cliente['id'],
-                    estado['dados']['profissional'],
-                    estado['dados']['data'],
-                    horario_escolhido
+                appointment_id = save_appointment(
+                    client['id'],
+                    state['data']['professional'],
+                    state['data']['date'],
+                    selected_time
                 )
                 
-                msg = f"""AGENDAMENTO PENDENTE DE CONFIRMACAO
+                msg = f"""APPOINTMENT PENDING CONFIRMATION
 
-Profissional: {estado['dados']['profissional']['nome']}
-Data: {estado['dados']['data'].replace('-', '/')}
-Horario: {horario_escolhido}
-Codigo: {agendamento_id}
+Professional: {state['data']['professional']['name']}
+Date: {state['data']['date'].replace('-', '/')}
+Time: {selected_time}
+Code: {appointment_id}
 
-Para CONFIRMAR, digite: CONFIRMO
-Para CANCELAR, digite: CANCELAR"""
+To CONFIRM, type: CONFIRM
+To CANCEL, type: CANCEL"""
                 
-                enviar_resposta(telefone, msg)
-                estados_conversas[telefone] = {'passo': 'aguardando_confirmacao', 'dados': {'agendamento_id': agendamento_id}}
-                salvar_estados()
+                send_response(phone, msg)
+                conversation_states[phone] = {'step': 'awaiting_confirmation', 'data': {'appointment_id': appointment_id}}
+                save_states()
                 return
             else:
-                enviar_resposta(telefone, f"Opcao invalida! Digite 1 a {len(horarios)}")
+                send_response(phone, f"Invalid option! Choose 1 to {len(times)}")
                 return
         except ValueError:
-            enviar_resposta(telefone, "Digite APENAS o numero do horario")
+            send_response(phone, "Enter ONLY the time number")
             return
     
-    elif estado['passo'] == 'aguardando_confirmacao':
-        if 'confirmo' in mensagem.lower() or 'sim' in mensagem.lower():
-            confirmar_agendamento(estado['dados']['agendamento_id'])
-            gerar_comprovante(estado['dados']['agendamento_id'], telefone)
+    elif state['step'] == 'awaiting_confirmation':
+        if 'confirm' in message.lower() or 'yes' in message.lower():
+            confirm_appointment(state['data']['appointment_id'])
+            generate_receipt(state['data']['appointment_id'], phone)
             
-            ag = get_agendamento(estado['dados']['agendamento_id'])
-            msg = f"""CONSULTA CONFIRMADA!
+            appointment = get_appointment(state['data']['appointment_id'])
+            msg = f"""APPOINTMENT CONFIRMED!
 
-Profissional: {ag['profissional_nome']}
-Data: {ag['data'].replace('-', '/')}
-Horario: {ag['horario']}
-Protocolo: {ag['id']}
+Professional: {appointment['professional_name']}
+Date: {appointment['date'].replace('-', '/')}
+Time: {appointment['time']}
+Protocol: {appointment['id']}
 
-Voce recebera um lembrete 24 horas antes."""
+You will receive a reminder 24 hours before."""
             
-            enviar_resposta(telefone, msg)
-            estados_conversas[telefone] = {'passo': 'inicio', 'dados': {}}
-            salvar_estados()
+            send_response(phone, msg)
+            conversation_states[phone] = {'step': 'start', 'data': {}}
+            save_states()
             return
             
-        elif 'cancelar' in mensagem.lower() or 'nao' in mensagem.lower():
-            cancelar_agendamento(estado['dados']['agendamento_id'])
-            enviar_resposta(telefone, "CONSULTA CANCELADA! Horario liberado.")
-            estados_conversas[telefone] = {'passo': 'inicio', 'dados': {}}
-            salvar_estados()
+        elif 'cancel' in message.lower() or 'no' in message.lower():
+            cancel_appointment(state['data']['appointment_id'])
+            send_response(phone, "APPOINTMENT CANCELLED! Time slot released.")
+            conversation_states[phone] = {'step': 'start', 'data': {}}
+            save_states()
             return
         else:
-            enviar_resposta(telefone, "Digite CONFIRMO ou CANCELAR")
+            send_response(phone, "Type CONFIRM to confirm or CANCEL to cancel")
             return
     
-    intencao = detectar_intencao(mensagem)
-    print(f"  Intencao: {intencao['intencao']}")
+    # New intent detection
+    intent = detect_intent(message)
+    print(f"  Intent: {intent['intent']}")
     
-    if intencao['intencao'] == 'agendar':
-        profissional = extrair_profissional(mensagem)
+    if intent['intent'] == 'book':
+        professional = extract_professional(message)
         
-        if not profissional:
-            msg = "ESCOLHA O PROFISSIONAL:\n\n"
-            for i, p in enumerate(PROFISSIONAIS, 1):
-                msg += f"{i} - {p['nome']} - {p['especialidade']}\n"
-            msg += "\nDigite o numero do profissional:"
-            enviar_resposta(telefone, msg)
-            estados_conversas[telefone] = {'passo': 'aguardando_profissional', 'dados': {}}
-            salvar_estados()
+        if not professional:
+            msg = "CHOOSE A PROFESSIONAL:\n\n"
+            for i, p in enumerate(PROFESSIONALS, 1):
+                msg += f"{i} - {p['name']} - {p['specialty']}\n"
+            msg += "\nEnter the professional number:"
+            send_response(phone, msg)
+            conversation_states[phone] = {'step': 'awaiting_professional', 'data': {}}
+            save_states()
             return
         
-        data = extrair_data(mensagem)
-        if not data:
-            msg = "QUAL DATA?\n\nExemplos:\n- hoje\n- amanha\n- proxima semana\n- 25/12\n\nDigite a data:"
-            enviar_resposta(telefone, msg)
-            estados_conversas[telefone] = {'passo': 'aguardando_data', 'dados': {'profissional': profissional}}
-            salvar_estados()
+        date = extract_date(message)
+        if not date:
+            msg = "WHICH DATE?\n\nExamples:\n- today\n- tomorrow\n- next week\n- 25/12\n\nEnter the date:"
+            send_response(phone, msg)
+            conversation_states[phone] = {'step': 'awaiting_date', 'data': {'professional': professional}}
+            save_states()
             return
         
-        horarios = obter_horarios_disponiveis(data, profissional['id'])
-        if not horarios:
-            msg = f"Sem horarios para {data.replace('-', '/')}. Escolha outra data:"
-            enviar_resposta(telefone, msg)
-            estados_conversas[telefone] = {'passo': 'aguardando_data', 'dados': {'profissional': profissional}}
-            salvar_estados()
+        times = get_available_times(date, professional['id'])
+        if not times:
+            msg = f"No times available for {date.replace('-', '/')}. Choose another date:"
+            send_response(phone, msg)
+            conversation_states[phone] = {'step': 'awaiting_date', 'data': {'professional': professional}}
+            save_states()
             return
         
-        msg = f"HORARIOS DISPONIVEIS\n\nData: {data.replace('-', '/')}\nProfissional: {profissional['nome']}\n\n"
-        for i, h in enumerate(horarios[:8], 1):
-            msg += f"{i} - {h}\n"
-        msg += "\nDigite o NUMERO do horario:"
+        msg = f"AVAILABLE TIMES\n\nDate: {date.replace('-', '/')}\nProfessional: {professional['name']}\n\n"
+        for i, t in enumerate(times[:8], 1):
+            msg += f"{i} - {t}\n"
+        msg += "\nEnter the NUMBER of the time:"
         
-        enviar_resposta(telefone, msg)
-        estados_conversas[telefone] = {
-            'passo': 'aguardando_horario',
-            'dados': {
-                'profissional': profissional,
-                'data': data,
-                'horarios': horarios
+        send_response(phone, msg)
+        conversation_states[phone] = {
+            'step': 'awaiting_time',
+            'data': {
+                'professional': professional,
+                'date': date,
+                'times': times
             }
         }
-        salvar_estados()
+        save_states()
         
-    elif intencao['intencao'] == 'listar':
-        agendamentos = get_agendamentos_cliente(telefone)
-        if not agendamentos:
-            enviar_resposta(telefone, "Voce nao tem consultas agendadas.")
+    elif intent['intent'] == 'list':
+        appointments = get_client_appointments(phone)
+        if not appointments:
+            send_response(phone, "You have no scheduled appointments.")
         else:
-            msg = "SUAS CONSULTAS:\n\n"
-            for ag in agendamentos:
-                status_icon = {'confirmado': '[OK]', 'pendente': '[ ]', 'cancelado': '[X]'}.get(ag['status'], '[?]')
-                msg += f"{status_icon} {ag['profissional_nome']}\n"
-                msg += f"   Data: {ag['data'].replace('-', '/')} as {ag['horario']}\n"
-                msg += f"   Status: {ag['status']}\n\n"
-            enviar_resposta(telefone, msg)
+            msg = "YOUR APPOINTMENTS:\n\n"
+            for app in appointments:
+                status_icon = {'confirmed': '[OK]', 'pending': '[ ]', 'cancelled': '[X]'}.get(app['status'], '[?]')
+                msg += f"{status_icon} {app['professional_name']}\n"
+                msg += f"   Date: {app['date'].replace('-', '/')} at {app['time']}\n"
+                msg += f"   Status: {app['status']}\n\n"
+            send_response(phone, msg)
     
-    elif intencao['intencao'] == 'cancelar':
-        agendamentos = get_agendamentos_cliente(telefone, status='confirmado')
-        if not agendamentos:
-            enviar_resposta(telefone, "Nenhuma consulta confirmada para cancelar.")
-        elif len(agendamentos) == 1:
-            cancelar_agendamento(agendamentos[0]['id'])
-            enviar_resposta(telefone, f"CONSULTA CANCELADA!\n\n{agendamentos[0]['profissional_nome']}\n{agendamentos[0]['data'].replace('-', '/')} as {agendamentos[0]['horario']}")
+    elif intent['intent'] == 'cancel':
+        appointments = get_client_appointments(phone, status='confirmed')
+        if not appointments:
+            send_response(phone, "No confirmed appointments to cancel.")
+        elif len(appointments) == 1:
+            cancel_appointment(appointments[0]['id'])
+            send_response(phone, f"APPOINTMENT CANCELLED!\n\n{appointments[0]['professional_name']}\n{appointments[0]['date'].replace('-', '/')} at {appointments[0]['time']}")
         else:
-            msg = "QUAL CONSULTA CANCELAR?\n\n"
-            for i, ag in enumerate(agendamentos, 1):
-                msg += f"{i} - {ag['profissional_nome']} - {ag['data'].replace('-', '/')} as {ag['horario']}\n"
-            enviar_resposta(telefone, msg)
+            msg = "WHICH APPOINTMENT TO CANCEL?\n\n"
+            for i, app in enumerate(appointments, 1):
+                msg += f"{i} - {app['professional_name']} - {app['date'].replace('-', '/')} at {app['time']}\n"
+            send_response(phone, msg)
     
-    elif intencao['intencao'] == 'confirmar':
-        pendentes = get_agendamentos_cliente(telefone, status='pendente')
-        if pendentes:
-            confirmar_agendamento(pendentes[0]['id'])
-            gerar_comprovante(pendentes[0]['id'], telefone)
-            enviar_resposta(telefone, f"CONSULTA CONFIRMADA! Protocolo: {pendentes[0]['id']}")
+    elif intent['intent'] == 'confirm':
+        pending = get_client_appointments(phone, status='pending')
+        if pending:
+            confirm_appointment(pending[0]['id'])
+            generate_receipt(pending[0]['id'], phone)
+            send_response(phone, f"APPOINTMENT CONFIRMED! Protocol: {pending[0]['id']}")
         else:
-            enviar_resposta(telefone, "Nenhum agendamento pendente para confirmar.")
+            send_response(phone, "No pending appointments to confirm.")
     
     else:
-        msg = """ASSISTENTE DE AGENDAMENTO
+        msg = """APPOINTMENT ASSISTANT
 
-COMANDOS:
-1. Agendar: "Agendar com Dr. Carlos para amanha"
-2. Listar: "Minhas consultas"
-3. Cancelar: "Cancelar minha consulta"
-4. Confirmar: "CONFIRMO" (apos agendar)"""
-        enviar_resposta(telefone, msg)
+COMMANDS:
+1. Book: "Book with Dr. Carlos for tomorrow"
+2. List: "My appointments"
+3. Cancel: "Cancel my appointment"
+4. Confirm: "CONFIRM" (after booking)"""
+        send_response(phone, msg)
 
-def processar_mensagem_arquivo(caminho_arquivo: str):
-    with open(caminho_arquivo, 'r', encoding='utf-8') as f:
-        conteudo = f.read()
+def process_message_file(file_path: str):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
     
-    blocos = conteudo.strip().split('\n\n')
+    # Split multiple messages in the same file
+    blocks = content.strip().split('\n\n')
     
-    for bloco in blocos:
-        linhas = bloco.split('\n')
-        telefone = None
-        nome = "Paciente"
-        mensagem = []
+    for block in blocks:
+        lines = block.split('\n')
+        phone = None
+        name = "Patient"
+        message = []
         
-        for linha in linhas:
-            if linha.startswith("DE:"):
-                telefone = linha.replace("DE:", "").strip()
-            elif linha.startswith("NOME:"):
-                nome = linha.replace("NOME:", "").strip()
-            elif not linha.startswith("DATA:") and not linha.startswith("===") and linha.strip():
-                mensagem.append(linha)
+        for line in lines:
+            if line.startswith("FROM:"):
+                phone = line.replace("FROM:", "").strip()
+            elif line.startswith("NAME:"):
+                name = line.replace("NAME:", "").strip()
+            elif not line.startswith("DATE:") and not line.startswith("===") and line.strip():
+                message.append(line)
         
-        if telefone and mensagem:
-            mensagem_texto = ' '.join(mensagem).strip()
-            print(f"\n[Processando] {telefone} - {nome}")
-            print(f"Mensagem: {mensagem_texto[:80]}")
-            processar_mensagem(telefone, mensagem_texto, nome)
+        if phone and message:
+            message_text = ' '.join(message).strip()
+            print(f"\n[Processing] {phone} - {name}")
+            print(f"Message: {message_text[:80]}")
+            process_message(phone, message_text, name)
 
-def processar_todas_mensagens():
-    carregar_estados()
+def process_all_messages():
+    load_states()
     
-    arquivos = [f for f in os.listdir(PASTA_ENTRADA) if f.endswith('.txt') and not f.endswith('.processed')]
+    files = [f for f in os.listdir(INPUT_FOLDER) if f.endswith('.txt') and not f.endswith('.processed')]
     
-    if not arquivos:
-        print(f"\nNenhuma mensagem em: {PASTA_ENTRADA}/")
+    if not files:
+        print(f"\nNo messages in: {INPUT_FOLDER}/")
         return
     
-    print(f"\nProcessando {len(arquivos)} arquivo(s)...")
-    for arquivo in arquivos:
-        caminho = os.path.join(PASTA_ENTRADA, arquivo)
-        print(f"\n--- Lendo arquivo: {arquivo} ---")
+    print(f"\nProcessing {len(files)} file(s)...")
+    for file in files:
+        path = os.path.join(INPUT_FOLDER, file)
+        print(f"\n--- Reading file: {file} ---")
         try:
-            processar_mensagem_arquivo(caminho)
-            os.rename(caminho, caminho + ".processed")
-            print(f"[OK] {arquivo} processado")
+            process_message_file(path)
+            os.rename(path, path + ".processed")
+            print(f"[OK] {file} processed")
         except Exception as e:
-            print(f"[ERRO] {arquivo}: {e}")
+            print(f"[ERROR] {file}: {e}")
 
-def criar_arquivo_teste_unico():
-    """Cria um unico arquivo com o fluxo completo"""
-    conteudo = """DE: 5511999999999
-NOME: Joao Silva
-DATA: 15/12/2024 10:00:00
+def create_single_test_file():
+    """Creates a single file with the complete flow"""
+    content = """FROM: 5511999999999
+NAME: Joao Silva
+DATE: 15/12/2024 10:00:00
 ==================================================
-Agendar com Dr. Carlos Silva para amanha
+Book with Dr. Carlos Silva for tomorrow
 
-DE: 5511999999999
-NOME: Joao Silva
-DATA: 15/12/2024 10:02:00
+FROM: 5511999999999
+NAME: Joao Silva
+DATE: 15/12/2024 10:02:00
 ==================================================
 1
 
-DE: 5511999999999
-NOME: Joao Silva
-DATA: 15/12/2024 10:05:00
+FROM: 5511999999999
+NAME: Joao Silva
+DATE: 15/12/2024 10:05:00
 ==================================================
-CONFIRMO
+CONFIRM
 
-DE: 5511999999999
-NOME: Joao Silva
-DATA: 15/12/2024 10:10:00
+FROM: 5511999999999
+NAME: Joao Silva
+DATE: 15/12/2024 10:10:00
 ==================================================
-Minhas consultas"""
+My appointments"""
     
-    with open(f"{PASTA_ENTRADA}/teste_completo.txt", 'w', encoding='utf-8') as f:
-        f.write(conteudo)
+    with open(f"{INPUT_FOLDER}/test_complete.txt", 'w', encoding='utf-8') as f:
+        f.write(content)
     
-    print(f"\nArquivo de teste criado: {PASTA_ENTRADA}/teste_completo.txt")
+    print(f"\nTest file created: {INPUT_FOLDER}/test_complete.txt")
 
 # ==================== MAIN ====================
-criar_pastas()
+create_folders()
 init_database()
-criar_arquivo_teste_unico()
-processar_todas_mensagens()
+create_single_test_file()
+process_all_messages()
 
 print("\n" + "="*60)
-print("PROCESSAMENTO CONCLUIDO!")
-print(f"Respostas: {PASTA_SAIDA}/")
-print(f"Comprovantes: {PASTA_AGENDAMENTOS}/")
+print("PROCESSING COMPLETE!")
+print(f"Responses: {OUTPUT_FOLDER}/")
+print(f"Receipts: {APPOINTMENTS_FOLDER}/")
 print("="*60)
 
+# Show total appointments
 conn = sqlite3.connect(DATABASE)
 cursor = conn.cursor()
-cursor.execute("SELECT COUNT(*) FROM agendamentos")
+cursor.execute("SELECT COUNT(*) FROM appointments")
 count = cursor.fetchone()[0]
-print(f"\nTotal de agendamentos no banco: {count}")
+print(f"\nTotal appointments in database: {count}")
 conn.close()
