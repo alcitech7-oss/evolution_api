@@ -86,12 +86,7 @@ This project was developed by alictech7-oss as a practical solution for automate
 📄 License
 MIT — use, modify, and share freely.
 
-**3. 📦 `requirements.txt` (Pronto para colar)**
 
-Para criar esse arquivo, você precisa descobrir quais bibliotecas seu código `sistema_agendamento.py` está usando. Se você não tiver certeza, pode começar com uma lista básica e depois ir adicionando.
-
-Crie um arquivo `requirements.txt` com o seguinte:
-flask
 requests
 python-dotenv
 
