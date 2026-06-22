@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SISTEMA DE AGENDAMENTO - VERSAO CORRIGIDA
+SISTEMA DE AGENDAMENTO - 
 Cria agendamentos no banco de dados e gera comprovantes
 """
 
@@ -23,7 +23,6 @@ print("="*60)
 print("SISTEMA DE AGENDAMENTO - INICIANDO...")
 print("="*60)
 
-# Horario de funcionamento
 HORARIOS_DISPONIVEIS = {
     "segunda": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
     "terca": ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"],
@@ -41,7 +40,6 @@ PROFISSIONAIS = [
     {"id": 4, "nome": "Dra. Fernanda Costa", "especialidade": "Pediatria"},
 ]
 
-# Estados das conversas
 estados_conversas = {}
 
 def salvar_estados():
@@ -289,7 +287,6 @@ def processar_mensagem(telefone: str, mensagem: str, nome: str):
     
     print(f"  Estado: {estado['passo']}")
     
-    # Processar baseado no passo
     if estado['passo'] == 'aguardando_horario':
         try:
             escolha = int(mensagem.strip())
@@ -297,7 +294,6 @@ def processar_mensagem(telefone: str, mensagem: str, nome: str):
             if 1 <= escolha <= len(horarios):
                 horario_escolhido = horarios[escolha - 1]
                 
-                # SALVAR AGENDAMENTO
                 agendamento_id = salvar_agendamento(
                     cliente['id'],
                     estado['dados']['profissional'],
@@ -356,7 +352,6 @@ Voce recebera um lembrete 24 horas antes."""
             enviar_resposta(telefone, "Digite CONFIRMO ou CANCELAR")
             return
     
-    # Nova intencao
     intencao = detectar_intencao(mensagem)
     print(f"  Intencao: {intencao['intencao']}")
     
@@ -454,7 +449,6 @@ def processar_mensagem_arquivo(caminho_arquivo: str):
     with open(caminho_arquivo, 'r', encoding='utf-8') as f:
         conteudo = f.read()
     
-    # Separar mensagens multiplas no mesmo arquivo
     blocos = conteudo.strip().split('\n\n')
     
     for bloco in blocos:
@@ -540,7 +534,6 @@ print(f"Respostas: {PASTA_SAIDA}/")
 print(f"Comprovantes: {PASTA_AGENDAMENTOS}/")
 print("="*60)
 
-# Mostrar agendamentos criados
 conn = sqlite3.connect(DATABASE)
 cursor = conn.cursor()
 cursor.execute("SELECT COUNT(*) FROM agendamentos")
