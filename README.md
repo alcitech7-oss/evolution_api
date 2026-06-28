@@ -39,7 +39,7 @@ A REST API for automated appointment scheduling via WhatsApp, powered by AI.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/alictech7-oss/evolution_api.git
+git clone https://github.com/alcitech7-oss/evolution_api.git
 cd evolution_api
 
 # 2. Create and activate virtual environment
@@ -79,6 +79,21 @@ This project includes a render.yaml file for easy deployment on Render.
 . The main logic for appointment handling is in sistema_agendamento.py.
 
 . The project is designed to be modular and easily extendable.
+## ✅ Project Status
+
+**Project validated and tested in a clean environment** (cloned from scratch).
+
+- ✔️ Dependencies successfully installed
+- ✔️ Core features validated
+- ✔️ Structure and documentation reviewed
+- ✔️ Ready for use and demonstration
+
+## 📌 Development History
+
+- **Initial structure:** Scheduling system with SQLite and AI
+- **Organization:** Modular code and documentation
+- **Documentation:** Updated README and added `requirements.txt`
+- **Final validation:** Project tested and validated from scratch
 
 🙏 Credits & Original Work
 This project was developed by alictech7-oss as a practical solution for automated scheduling.
